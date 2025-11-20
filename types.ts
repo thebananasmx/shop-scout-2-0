@@ -1,4 +1,3 @@
-
 export interface Variant {
   type: string;
   value: string;

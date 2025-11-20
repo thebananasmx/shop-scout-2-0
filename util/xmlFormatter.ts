@@ -2,6 +2,9 @@
 import { Product, Variant } from '../types';
 
 const escapeXml = (unsafe: string): string => {
+    if (typeof unsafe !== 'string') {
+        unsafe = String(unsafe);
+    }
     return unsafe.replace(/[<>&'"]/g, (c) => {
         switch (c) {
             case '<': return '&lt;';
@@ -43,7 +46,7 @@ export const generateXml = (products: Product[]): string => {
         xml += createNode('name', product.name, '    ');
         xml += createNode('description', product.description, '    ');
         xml += createNode('price', product.price, '    ');
-        if (product.discountedPrice) {
+        if (product.discountedPrice !== undefined && product.discountedPrice !== null) {
             xml += createNode('discounted_price', product.discountedPrice, '    ');
         }
         xml += createNode('image_url', product.imageUrl, '    ');
