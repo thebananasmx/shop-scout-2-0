@@ -55,13 +55,14 @@ export default async function handler(req: any, res: any) {
         console.log("Homepage fetched. Finding PDP links with Gemini...");
         let pdpUrls = await findAndClassifyPdpLinks(ai, fastModel, homeHtml, startUrl);
 
+        if (pdpUrls.length === 0) {
+             console.log("No PDP links found by Gemini on the homepage.");
+             return res.status(200).json({ error: "No se encontraron enlaces a productos en la página de inicio.", details: "Esto puede suceder si el sitio carga su contenido dinámicamente con JavaScript."});
+        }
+
         // Limit links to process to avoid long execution times
         pdpUrls = pdpUrls.slice(0, 5);
         console.log(`Found ${pdpUrls.length} potential PDP links to process.`);
-        
-        if (pdpUrls.length === 0) {
-             return res.status(200).json([]);
-        }
 
         // Step 2: Fetch each PDP and extract product data
         console.log("Step 2: Extracting data from PDPs...");
@@ -79,6 +80,11 @@ export default async function handler(req: any, res: any) {
 
         const products = (await Promise.all(extractionPromises)).filter(p => p !== null) as Product[];
         console.log(`Successfully extracted data for ${products.length} products.`);
+
+        if (products.length === 0) {
+            console.log("Found PDP links, but failed to extract data from any of them.");
+            return res.status(200).json({ error: "No se pudo extraer datos de los productos.", details: "Se encontraron páginas de producto, pero el acceso podría estar bloqueado o el formato no es compatible." });
+        }
 
         // Step 3: Respond with the found products
         console.log("Step 3: Sending response.");

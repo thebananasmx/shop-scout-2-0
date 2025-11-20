@@ -33,17 +33,17 @@ const App: React.FC = () => {
       });
 
       const responseBody = await response.text();
-      let errorData;
+      let data;
       try {
-        errorData = JSON.parse(responseBody);
+        data = JSON.parse(responseBody);
       } catch(e) {
         // Not a JSON response
       }
 
       if (!response.ok) {
-        let errorMessage = errorData?.error || response.statusText;
-        if(errorData?.details) {
-            errorMessage += ` (Detalles: ${errorData.details})`;
+        let errorMessage = data?.error || response.statusText;
+        if(data?.details) {
+            errorMessage += ` (Detalles: ${data.details})`;
         }
         
         // Don't show a massive HTML page to the user.
@@ -54,14 +54,14 @@ const App: React.FC = () => {
         throw new Error(errorMessage);
       }
 
-      const foundProducts: Product[] = errorData || JSON.parse(responseBody);
+      const foundProducts: Product[] = data;
       
       if (foundProducts.length > 0) {
         setProducts(foundProducts);
         const xml = generateXml(foundProducts);
         setFinalXml(xml);
       } else {
-         setError("No se encontraron productos en la URL proporcionada o las páginas de producto no eran accesibles.");
+         setError(data?.error || "No se encontraron productos en la URL proporcionada o las páginas de producto no eran accesibles.");
       }
 
     } catch (err) {
