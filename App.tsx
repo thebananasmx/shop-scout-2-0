@@ -32,27 +32,29 @@ const App: React.FC = () => {
         body: JSON.stringify({ startUrl }),
       });
 
+      const responseBody = await response.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(responseBody);
+      } catch(e) {
+        // Not a JSON response
+      }
+
       if (!response.ok) {
-        const errorBody = await response.text();
-        let errorMessage = errorBody;
-        try {
-            // Attempt to parse as JSON for a structured error message
-            const errorJson = JSON.parse(errorBody);
-            if(errorJson.error) {
-                errorMessage = errorJson.error;
-            }
-        } catch(e) {
-            // It's not JSON, so the raw text is the best we have.
-            // Don't show a massive HTML page to the user.
-            if (errorMessage.length > 500 || errorMessage.trim().startsWith('<!DOCTYPE html>')) {
-              errorMessage = `Error del servidor (${response.status}). Revisa la consola para más detalles.`;
-              console.error("Full server response:", errorBody);
-            }
+        let errorMessage = errorData?.error || response.statusText;
+        if(errorData?.details) {
+            errorMessage += ` (Detalles: ${errorData.details})`;
+        }
+        
+        // Don't show a massive HTML page to the user.
+        if (responseBody.length > 500 || responseBody.trim().startsWith('<!DOCTYPE html>')) {
+          errorMessage = `Error del servidor (${response.status}). Revisa la consola de Vercel para más detalles.`;
+          console.error("Full server response:", responseBody);
         }
         throw new Error(errorMessage);
       }
 
-      const foundProducts: Product[] = await response.json();
+      const foundProducts: Product[] = errorData || JSON.parse(responseBody);
       
       if (foundProducts.length > 0) {
         setProducts(foundProducts);
