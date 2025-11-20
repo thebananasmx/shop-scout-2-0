@@ -10,7 +10,8 @@ if (!process.env.API_KEY) {
 }
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-const model = "gemini-3-pro-preview"; // Use a powerful model for these tasks
+const fastModel = "gemini-2.5-flash";
+const powerfulModel = "gemini-3-pro-preview";
 
 // --- Gemini Schemas and Prompts ---
 
@@ -49,7 +50,7 @@ async function getLinksFromHtml(html: string, baseUrl: string): Promise<string[]
     `;
     try {
         const response = await ai.models.generateContent({
-            model,
+            model: fastModel,
             contents: prompt,
             config: {
                 responseMimeType: 'application/json',
@@ -73,7 +74,7 @@ async function classifyUrlAsProductPage(url: string): Promise<boolean> {
         URL: ${url}
     `;
      try {
-        const response = await ai.models.generateContent({ model, contents: prompt });
+        const response = await ai.models.generateContent({ model: fastModel, contents: prompt });
         return response.text.trim().toLowerCase() === 'true';
     } catch (e) {
         console.error(`Error classifying URL ${url}:`, e);
@@ -90,7 +91,7 @@ async function extractProductDataFromHtml(html: string, url: string): Promise<Pr
     `;
     try {
         const response = await ai.models.generateContent({
-            model,
+            model: powerfulModel,
             contents: prompt,
             config: {
                 responseMimeType: 'application/json',
@@ -129,7 +130,7 @@ export default async function handler(req: any, res: any) {
         let links = await getLinksFromHtml(homeHtml, startUrl);
 
         // Limit links to process to avoid long execution times
-        links = links.slice(0, 10);
+        links = links.slice(0, 5);
 
         // Step 2: Classify links to find PDPs
         const classificationPromises = links.map(async (link) => ({
@@ -163,6 +164,7 @@ export default async function handler(req: any, res: any) {
 
     } catch (error) {
         console.error('Crawling failed:', error);
-        return res.status(500).json({ error: 'An internal server error occurred during the crawl.' });
+        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+        return res.status(500).json({ error: 'An internal server error occurred during the crawl.', details: errorMessage });
     }
 }
