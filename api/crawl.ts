@@ -40,13 +40,14 @@ const productSchema = {
 };
 
 
-async function getLinksFromHtml(html: string, baseUrl: string): Promise<string[]> {
+async function findAndClassifyPdpLinks(html: string, baseUrl: string): Promise<string[]> {
     const prompt = `
-        Analiza el siguiente código HTML de una página de comercio electrónico. Extrae todas las URLs internas únicas que encuentres.
-        Devuelve solo una lista de URLs en formato JSON. Ej: ["/producto/a", "/categoria/b"].
+        Analiza el siguiente código HTML de una página de comercio electrónico. Extrae todas las URLs internas únicas que parezcan ser Páginas de Detalles de Producto (PDPs).
+        Enfócate en enlaces que claramente lleven a un producto individual, no a categorías, listas de productos o páginas informativas.
+        Devuelve solo una lista de URLs de PDPs en formato JSON. Ej: ["/producto/zapato-rojo", "/producto/bota-negra"].
         Asegúrate de que las URLs sean relativas al sitio (empiecen con /) o sean URLs completas del mismo dominio.
         HTML:
-        ${html.substring(0, 20000)}
+        ${html.substring(0, 30000)}
     `;
     try {
         const response = await ai.models.generateContent({
@@ -62,25 +63,11 @@ async function getLinksFromHtml(html: string, baseUrl: string): Promise<string[]
         // Resolve relative URLs to absolute URLs
         return uniqueLinks.map(link => new URL(link, baseUrl).href);
     } catch (e) {
-        console.error("Error extracting links:", e);
+        console.error("Error finding and classifying PDP links:", e);
         return [];
     }
 }
 
-async function classifyUrlAsProductPage(url: string): Promise<boolean> {
-    const prompt = `
-        ¿La siguiente URL parece ser una Página de Detalles de Producto (PDP) de un sitio de comercio electrónico?
-        Responde solo con "true" o "false".
-        URL: ${url}
-    `;
-     try {
-        const response = await ai.models.generateContent({ model: fastModel, contents: prompt });
-        return response.text.trim().toLowerCase() === 'true';
-    } catch (e) {
-        console.error(`Error classifying URL ${url}:`, e);
-        return false;
-    }
-}
 
 async function extractProductDataFromHtml(html: string, url: string): Promise<Product | null> {
      const prompt = `
@@ -121,30 +108,22 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-        // Step 1: Fetch homepage and extract links
+        // Step 1: Fetch homepage and find PDP links directly in one step
         const homeResponse = await fetch(startUrl);
         if (!homeResponse.ok) {
             return res.status(500).json({ error: `Failed to fetch start URL: ${homeResponse.statusText}` });
         }
         const homeHtml = await homeResponse.text();
-        let links = await getLinksFromHtml(homeHtml, startUrl);
+        let pdpUrls = await findAndClassifyPdpLinks(homeHtml, startUrl);
 
         // Limit links to process to avoid long execution times
-        links = links.slice(0, 5);
-
-        // Step 2: Classify links to find PDPs
-        const classificationPromises = links.map(async (link) => ({
-            url: link,
-            isPdp: await classifyUrlAsProductPage(link)
-        }));
-        const classifiedLinks = await Promise.all(classificationPromises);
-        const pdpUrls = classifiedLinks.filter(l => l.isPdp).map(l => l.url);
+        pdpUrls = pdpUrls.slice(0, 5);
         
         if (pdpUrls.length === 0) {
              return res.status(200).json([]);
         }
 
-        // Step 3: Fetch each PDP and extract product data
+        // Step 2: Fetch each PDP and extract product data
         const extractionPromises = pdpUrls.map(async (url) => {
             try {
                 const pdpResponse = await fetch(url);
@@ -159,7 +138,7 @@ export default async function handler(req: any, res: any) {
 
         const products = (await Promise.all(extractionPromises)).filter(p => p !== null) as Product[];
 
-        // Step 4: Respond with the found products
+        // Step 3: Respond with the found products
         return res.status(200).json(products);
 
     } catch (error) {
