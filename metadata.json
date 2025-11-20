@@ -1,0 +1,5 @@
+{
+  "name": "ShopScout 2.0",
+  "description": "An application to analyze e-commerce websites, identify product pages using Gemini, extract product details, and generate an XML catalog. The crawling is a simulation due to browser limitations.",
+  "requestFramePermissions": []
+}
